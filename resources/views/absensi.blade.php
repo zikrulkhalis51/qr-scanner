@@ -60,7 +60,7 @@
                            required>
                 </div>
 
-                <button type="submit" class="btn btn-primary w-100">
+                <button type="submit" class="btn btn-primary w-100" id="tombolCari">
                     Cari Mahasiswa
                 </button>
             </form>
@@ -91,9 +91,15 @@
     const pesan = document.getElementById('pesan');
     const dataMahasiswa = document.getElementById('dataMahasiswa');
     const tombolAbsen = document.getElementById('tombolAbsen');
+    const tombolCari = document.getElementById('tombolCari');
+
+    // URL menggunakan HTTPS
+    const urlCari = 'https://qr-scanner-production-a8ca.up.railway.app/cari-mahasiswa';
+    const urlSimpan = 'https://qr-scanner-production-a8ca.up.railway.app/simpan-absensi';
 
     let nimDitemukan = '';
 
+    // Mencari mahasiswa
     formCari.addEventListener('submit', async function(event) {
         event.preventDefault();
 
@@ -108,10 +114,11 @@
             return;
         }
 
+        tombolCari.disabled = true;
         pesan.innerHTML = '<div class="alert alert-info">Sedang mencari mahasiswa...</div>';
 
         try {
-            const response = await fetch("{{ route('cari.mahasiswa') }}", {
+            const response = await fetch(urlCari, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -122,6 +129,10 @@
             });
 
             const hasil = await response.json();
+
+            if (!response.ok) {
+                throw new Error(hasil.pesan || 'Server memberikan respons HTTP ' + response.status);
+            }
 
             if (hasil.status === 'success') {
                 nimDitemukan = hasil.nim;
@@ -137,13 +148,23 @@
                     (hasil.pesan || 'Mahasiswa tidak ditemukan.') +
                     '</div>';
             }
+
         } catch (error) {
-            pesan.innerHTML = '<div class="alert alert-danger">Gagal menghubungi server.</div>';
+            console.error('Kesalahan pencarian:', error);
+
+            pesan.innerHTML = '<div class="alert alert-danger">' +
+                'Gagal mencari mahasiswa. ' + error.message +
+                '</div>';
+
+        } finally {
+            tombolCari.disabled = false;
         }
     });
 
+    // Menyimpan absensi
     tombolAbsen.addEventListener('click', async function() {
         if (!nimDitemukan) {
+            pesan.innerHTML = '<div class="alert alert-warning">Cari mahasiswa terlebih dahulu.</div>';
             return;
         }
 
@@ -151,7 +172,7 @@
         pesan.innerHTML = '<div class="alert alert-info">Sedang menyimpan absensi...</div>';
 
         try {
-            const response = await fetch("{{ route('simpan.absensi') }}", {
+            const response = await fetch(urlSimpan, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -163,23 +184,35 @@
 
             const hasil = await response.json();
 
+            if (!response.ok) {
+                throw new Error(hasil.pesan || 'Server memberikan respons HTTP ' + response.status);
+            }
+
             if (hasil.status === 'success') {
                 pesan.innerHTML = '<div class="alert alert-success">' +
-                    hasil.pesan + '<br>Nama: ' + hasil.nama +
-                    '<br>Tanggal: ' + hasil.tanggal +
-                    '<br>Waktu: ' + hasil.waktu +
+                    (hasil.pesan || 'Absensi berhasil disimpan.') +
+                    '<br>Nama: ' + (hasil.nama || '') +
+                    '<br>Tanggal: ' + (hasil.tanggal || '') +
+                    '<br>Waktu: ' + (hasil.waktu || '') +
                     '</div>';
 
                 dataMahasiswa.style.display = 'none';
                 inputNim.value = '';
                 nimDitemukan = '';
+
             } else {
                 pesan.innerHTML = '<div class="alert alert-warning">' +
                     (hasil.pesan || 'Absensi gagal disimpan.') +
                     '</div>';
             }
+
         } catch (error) {
-            pesan.innerHTML = '<div class="alert alert-danger">Gagal menyimpan absensi.</div>';
+            console.error('Kesalahan penyimpanan:', error);
+
+            pesan.innerHTML = '<div class="alert alert-danger">' +
+                'Gagal menyimpan absensi. ' + error.message +
+                '</div>';
+
         } finally {
             tombolAbsen.disabled = false;
         }
