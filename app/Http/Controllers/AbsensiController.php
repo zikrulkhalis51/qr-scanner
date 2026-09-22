@@ -48,16 +48,57 @@ class AbsensiController extends Controller
         ]);
 
         try {
-            $response = Http::get($this->scriptUrl(), [
+            $url = $this->scriptUrl();
+
+            // Periksa apakah URL Google Apps Script tersedia
+            if (empty($url)) {
+                return response()->json([
+                    'status' => 'error',
+                    'pesan' => 'GOOGLE_SCRIPT_URL belum diatur di Railway.'
+                ], 500);
+            }
+
+            // Menghubungi Google Apps Script
+            $response = Http::timeout(30)->get($url, [
                 'nim' => $request->nim
             ]);
 
-            return response()->json($response->json());
+            // Periksa respons dari Google Apps Script
+            if (!$response->successful()) {
+                \Log::error('Gagal mencari mahasiswa dari Google Apps Script', [
+                    'status' => $response->status(),
+                    'body' => $response->body()
+                ]);
 
-        } catch (\Exception $e) {
+                return response()->json([
+                    'status' => 'error',
+                    'pesan' => 'Google Apps Script mengembalikan HTTP ' . $response->status()
+                ], 502);
+            }
+
+            // Ubah respons menjadi JSON
+            $data = $response->json();
+
+            // Periksa apakah respons berupa JSON yang valid
+            if (!is_array($data)) {
+                \Log::error('Respons pencarian Google Apps Script tidak valid', [
+                    'body' => $response->body()
+                ]);
+
+                return response()->json([
+                    'status' => 'error',
+                    'pesan' => 'Respons Google Apps Script tidak valid.'
+                ], 502);
+            }
+
+            return response()->json($data);
+
+        } catch (\Throwable $e) {
+            \Log::error('Kesalahan pencarian mahasiswa: ' . $e->getMessage());
+
             return response()->json([
                 'status' => 'error',
-                'pesan' => 'Gagal menghubungi Google Sheets'
+                'pesan' => 'Laravel gagal menghubungi Google Apps Script.'
             ], 500);
         }
     }
@@ -74,16 +115,57 @@ class AbsensiController extends Controller
         ]);
 
         try {
-            $response = Http::post($this->scriptUrl(), [
+            $url = $this->scriptUrl();
+
+            // Periksa apakah URL Google Apps Script tersedia
+            if (empty($url)) {
+                return response()->json([
+                    'status' => 'error',
+                    'pesan' => 'GOOGLE_SCRIPT_URL belum diatur di Railway.'
+                ], 500);
+            }
+
+            // Mengirim data absensi ke Google Apps Script
+            $response = Http::timeout(30)->post($url, [
                 'nim' => $request->nim
             ]);
 
-            return response()->json($response->json());
+            // Periksa respons dari Google Apps Script
+            if (!$response->successful()) {
+                \Log::error('Gagal menyimpan absensi ke Google Apps Script', [
+                    'status' => $response->status(),
+                    'body' => $response->body()
+                ]);
 
-        } catch (\Exception $e) {
+                return response()->json([
+                    'status' => 'error',
+                    'pesan' => 'Google Apps Script mengembalikan HTTP ' . $response->status()
+                ], 502);
+            }
+
+            // Ubah respons menjadi JSON
+            $data = $response->json();
+
+            // Periksa apakah respons berupa JSON yang valid
+            if (!is_array($data)) {
+                \Log::error('Respons penyimpanan Google Apps Script tidak valid', [
+                    'body' => $response->body()
+                ]);
+
+                return response()->json([
+                    'status' => 'error',
+                    'pesan' => 'Respons Google Apps Script tidak valid.'
+                ], 502);
+            }
+
+            return response()->json($data);
+
+        } catch (\Throwable $e) {
+            \Log::error('Kesalahan penyimpanan absensi: ' . $e->getMessage());
+
             return response()->json([
                 'status' => 'error',
-                'pesan' => 'Gagal menyimpan absensi'
+                'pesan' => 'Laravel gagal menghubungi Google Apps Script.'
             ], 500);
         }
     }
